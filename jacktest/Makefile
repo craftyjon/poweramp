@@ -1,5 +1,5 @@
 C = gcc
-CFLAGS = -g
+CFLAGS = -g -Wall -ljack -lpthread -lrt -lncurses -ltinfo
 OBJECTS = jacktest.o
 
 spitest : $(OBJECTS)

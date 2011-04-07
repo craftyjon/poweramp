@@ -35,6 +35,7 @@ float pg_psu_voltage(sample_t);
 /* Main JACK callback - processes nframes as passthrough, storing up to BUF_SIZE of them into the buffer */
 int process (jack_nframes_t nframes, void *arg)
 {
+    mvprintw(1,4,"process called!");
     jack_default_audio_sample_t *in, *out, *out_power;
 
     in = jack_port_get_buffer (input_port, nframes);
@@ -43,12 +44,12 @@ int process (jack_nframes_t nframes, void *arg)
 
     memcpy (out, in, sizeof (sample_t) * nframes);
 
-    jack_nframes_t i;
+/*  jack_nframes_t i;
     for(i=0; i<nframes; i++)
     {
         out_power[i] = (sample_t)(pg_psu_voltage(in[i])/15);
     }
-
+*/
     //memcpy (out_power, power_output, sizeof(sample_t));
 
     if(nframes < BUF_SIZE)
@@ -67,6 +68,7 @@ int process (jack_nframes_t nframes, void *arg)
 /* If JACK has to die, it will use this callback to make us die as well */
 void jack_shutdown (void *arg)
 {
+    initscr();
     exit (1);
 }
 
@@ -119,9 +121,9 @@ void pg_init_jack(void)
     /* create one input and two output ports */
     input_port = jack_port_register (client, "input", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
     output_port_signal = jack_port_register (client, "output_signal", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-    output_port_power = jack_port_register (client, "output_power", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+    //output_port_power = jack_port_register (client, "output_power", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
 
-    if ((input_port == NULL) || (output_port_signal == NULL) || (output_port_power == NULL))
+    if ((input_port == NULL) || (output_port_signal == NULL)) // || (output_port_power == NULL))
     {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
@@ -160,7 +162,7 @@ void pg_init_jack(void)
         fprintf (stderr, "cannot connect output ports\n");
     }
 
-    if (jack_connect (client, jack_port_name (output_port_power), ports[1]));
+//    if (jack_connect (client, jack_port_name (output_port_power), ports[1]));
 
     free (ports);
 }
@@ -187,13 +189,15 @@ int main (int argc, char *argv[])
 {
     /* initialize audio buffer */
     buf_ptr = 0;
+    
     memset(rolling_buffer, 0, sizeof(sample_t)*BUF_SIZE);
-
-    /* initialize ncurses */
-    pg_init_curses();
 
     /* initialize jack */
     pg_init_jack();
+ 
+    /* initialize ncurses */
+    pg_init_curses();
+
 
     sample_t sample_total, sample_max;
     int i, row, col;
@@ -203,7 +207,10 @@ int main (int argc, char *argv[])
     mvprintw(1,1,"==== dsp-playground ====");
     mvprintw(2,1,"Connected at %" PRIu32" kHz",jack_get_sample_rate (client));
     mvprintw(3,1,"Buffer size: %d", BUF_SIZE);
-
+    //
+ //   printf("Connected at %d kHz\n", jack_get_sample_rate(client));
+//    printf("Buffer size: %d\n", BUF_SIZE);
+//    sleep(3);
     while(1) {
         sample_total = 0;
         sample_max = 0;
@@ -216,12 +223,14 @@ int main (int argc, char *argv[])
 
         output_voltage = pg_psu_voltage(sample_total);
 
+        //printf("%f\n", sample_total);
+
         mvprintw(row/2,3,"Current average sample level: %f",sample_total);
         mvprintw((row/2)+1,3,"Current max sample level: %f",sample_max);
         mvprintw((row/2)+2,3,"Power supply output voltage based on average level: %f", output_voltage);
         refresh();
 
-        //usleep(100000);
+        usleep(100000);
     }
 
     jack_client_close (client);
