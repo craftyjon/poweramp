@@ -22,6 +22,9 @@
 #define PSU_NEG_SLOPE   1.3
 #define PSU_NEG_OFFSET  1
 
+#define PSU_RISE_DELAY  2    //milliseconds
+#define PSU_FALL_DELAY  1050
+
 // Note: Power supplies are non-linear with new resistor values.  We are now using a lookup table
 uint8_t voltage_to_potval(uint8_t, float);
 

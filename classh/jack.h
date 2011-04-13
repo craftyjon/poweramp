@@ -10,7 +10,7 @@
 
 #include <jack/jack.h>
 
-#define BUF_SIZE 16
+#define BUF_SIZE 64
 
 typedef jack_default_audio_sample_t sample_t;
 

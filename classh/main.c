@@ -28,6 +28,9 @@ uint8_t pot_pos;
 
 uint8_t pot_pos_change, pot_neg_change;
 
+struct timespec last_pos_update, last_neg_update;
+#define POT_DELAY_NSEC  100
+#define POT_SHORT_DELAY_NSEC    4
 
 /* Input: audio sample (sample_t)
  * Output: none (updates globals)
@@ -57,7 +60,6 @@ void sample_to_potvals(sample_t sample) {
     } else {
         pot_neg_change = 0;
     }
-
 
     mvprintw(4,1,"%1.3f\t%1.3f\t%3d\t%3d\n",sample,out_voltage,pot_pos,pot_neg);
     refresh();
@@ -123,43 +125,34 @@ void update_buffer() {
     }
     sample_total /= BUF_SIZE;
 
-    sample_to_potvals(sample_total);
+    sample_to_potvals(sample_max);
 }
 
 void update_pots() {
-
+    struct timespec now;
     int ret = 0;
-    struct timespec ts;
-    ts.tv_sec = 0;
-    ts.tv_nsec = 700000;
+    clock_gettime(CLOCK_REALTIME, &now);
+    //    if(((1000000*now.tv_sec + now.tv_nsec) - (1000000*last_pos_update.tv_sec + last_pos_update.tv_nsec) < POT_SHORT_DELAY_NSEC))
+//
+  //          return;
+        if((ret = pot_write(POT_POS, pot_pos)) != 0) {
+            mvprintw(7,1,"I2C Error!");
+            mvprintw(8,1,strerror(ret));
+            refresh();
+        }
+        clock_gettime(CLOCK_REALTIME,&last_pos_update);
+        /*
+        if(((1000000*now.tv_sec + now.tv_nsec) - (1000000*last_pos_update.tv_sec + last_pos_update.tv_nsec) < POT_DELAY_NSEC))
+            return;
 
-    if(pot_pos_change > 0)  // lowering positive voltage
-    {
-        fprintf(stderr,"updating lower");
+        mvprintw(9,1,"%u\t\t%u\t\t+",now.tv_nsec,last_pos_update.tv_nsec);
         if((ret = pot_write(POT_POS, pot_pos)) != 0) {
             mvprintw(7,1,"I2C Error!");
             mvprintw(8,1,strerror(ret));
             refresh();
-        } else {
-            mvprintw(7,1,"           ");
-            refresh();
         }
-        nanosleep(&ts,NULL);
-    }
-    if(pot_pos_change < 0) // raising positive voltage, high priority
-    {
-        fprintf(stderr,"updating higher");
-        ts.tv_nsec = 900000;
-        if((ret = pot_write(POT_POS, pot_pos)) != 0) {
-            mvprintw(7,1,"I2C Error!");
-            mvprintw(8,1,strerror(ret));
-            refresh();
-        } else {
-            mvprintw(7,1,"           ");
-            refresh();
-        }
-        nanosleep(&ts,NULL);
-    }
+        clock_gettime(CLOCK_REALTIME,&last_pos_update);
+    */
 
     if(!pot_neg_change)
         return;

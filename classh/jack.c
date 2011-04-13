@@ -10,14 +10,27 @@
 #include <string.h>
 #include <math.h>
 #include <jack/jack.h>
+#include <jack/ringbuffer.h>
 
 #include "jack.h"
+#include "classh.h"
 
 jack_port_t *input_port;
 jack_port_t *output_port_signal;
 jack_client_t *client;
 
+#define SAMPLE_RATE 48000 // Hz
+
+
+// We need to operate on a 2ms delay
+// Let's go with 10 samples late
+//
+#define DELAY 40
+
 extern sample_t rolling_buffer[BUF_SIZE];
+int buf_read, buf_write;
+const size_t sample_size = sizeof(jack_default_audio_sample_t);
+jack_ringbuffer_t *rb;
 
 /* Main JACK callback - processes nframes as passthrough, storing up to BUF_SIZE of them into the buffer */
 int process (jack_nframes_t nframes, void *arg) {
@@ -26,8 +39,8 @@ int process (jack_nframes_t nframes, void *arg) {
     in = jack_port_get_buffer (input_port, nframes);
     out = jack_port_get_buffer (output_port_signal, nframes);
 
-    memcpy (out, in, sizeof (sample_t) * nframes);
-
+  //  jack_ringbuffer_write(rb, (void*)in, sample_size*nframes);
+//    jack_ringbuffer_read(rb, (void*)out, sample_size*nframes);
     if(nframes < BUF_SIZE)
     {
         memcpy (rolling_buffer, in, sizeof(sample_t)*nframes);
@@ -36,16 +49,18 @@ int process (jack_nframes_t nframes, void *arg) {
     {
         memcpy (rolling_buffer, in, sizeof(sample_t)*BUF_SIZE);
     }
-
+    memcpy (out, in, sizeof (sample_t) * nframes);
     return 0;
 }
 
 /* If JACK has to die, it will use this callback to make us die as well */
 void jack_shutdown (void *arg) {
+    jack_ringbuffer_free (rb);
     exit (1);
 }
 
 void jack_close(void) {
+    jack_ringbuffer_free (rb);
     jack_client_close(client);
 }
 
@@ -127,5 +142,14 @@ void init_jack(void)
     }
 
     free (ports);
+    rb = jack_ringbuffer_create (sample_size * 16384);
+    if(rb == NULL) {
+        fprintf(stderr, "Cannot create ringbuffer\n");
+        exit(1);
+    }
+    jack_default_audio_sample_t nullsample[DELAY];
+    memset(&nullsample,0,DELAY);
+    
+    jack_ringbuffer_write(rb, (void*)nullsample, (sample_size * DELAY));
 }
 
