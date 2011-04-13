@@ -1,3 +1,17 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <linux/i2c-dev.h>
+#include <linux/i2c.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <string.h>
+#include <stdlib.h>
+#include <inttypes.h>
+#include <errno.h>
+
+
 #include "i2c.h"
 
 int i2c_driver;

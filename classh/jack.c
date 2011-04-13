@@ -1,9 +1,6 @@
-/** jacktest.c
+/** jack.c
  *
  * Author: Jon Evans <jon@craftyjon.com>
- * Revision: 2010-11-18
- *
- * Description: Sets up a JACK client, maps input to output, and captures statistics about the input.
  */
 
 #include <stdio.h>
@@ -12,37 +9,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
 #include <jack/jack.h>
 
-#include <curses.h>
-
-#define BUF_SIZE 16
+#include "jack.h"
 
 jack_port_t *input_port;
 jack_port_t *output_port_signal;
 jack_client_t *client;
 
-typedef jack_default_audio_sample_t sample_t;
-
-sample_t rolling_buffer[BUF_SIZE];
-sample_t power_output;
-int buf_ptr;
-
-float pg_psu_voltage(sample_t);
+extern sample_t rolling_buffer[BUF_SIZE];
 
 /* Main JACK callback - processes nframes as passthrough, storing up to BUF_SIZE of them into the buffer */
-int process (jack_nframes_t nframes, void *arg)
-{
+int process (jack_nframes_t nframes, void *arg) {
     jack_default_audio_sample_t *in, *out;
 
     in = jack_port_get_buffer (input_port, nframes);
     out = jack_port_get_buffer (output_port_signal, nframes);
 
     memcpy (out, in, sizeof (sample_t) * nframes);
+
     if(nframes < BUF_SIZE)
     {
-        mvprintw(0,0,"Warning: Capturing less than %d frames into the buffer in process()!",BUF_SIZE);
         memcpy (rolling_buffer, in, sizeof(sample_t)*nframes);
     }
     else
@@ -54,33 +41,22 @@ int process (jack_nframes_t nframes, void *arg)
 }
 
 /* If JACK has to die, it will use this callback to make us die as well */
-void jack_shutdown (void *arg)
-{
-    initscr();
+void jack_shutdown (void *arg) {
     exit (1);
 }
 
-/* Set up ncurses for pretty printing */
-void pg_init_curses(void)
-{
-    initscr();
-    cbreak();
-    keypad(stdscr, TRUE);
-    noecho();
+void jack_close(void) {
+    jack_client_close(client);
 }
 
 /* Hook in our program to the JACK server for realtime audio I/O */
-void pg_init_jack(void)
+void init_jack(void)
 {
     const char **ports;
-    const char *client_name = "jack-playground";
+    const char *client_name = "classh";
     const char *server_name = NULL;
     jack_options_t options = JackNullOption;
     jack_status_t status;
-
-    mvprintw(4,1,"Starting up...");
-
-    power_output = 0;
 
     /* open a client connection to the JACK server */
 
@@ -108,12 +84,10 @@ void pg_init_jack(void)
     jack_set_process_callback (client, process, 0);
     jack_on_shutdown (client, jack_shutdown, 0);
 
-    /* create one input and two output ports */
     input_port = jack_port_register (client, "input", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
     output_port_signal = jack_port_register (client, "output_signal", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-    //output_port_power = jack_port_register (client, "output_power", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
 
-    if ((input_port == NULL) || (output_port_signal == NULL)) // || (output_port_power == NULL))
+    if ((input_port == NULL) || (output_port_signal == NULL))
     {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
@@ -153,69 +127,5 @@ void pg_init_jack(void)
     }
 
     free (ports);
-
-    mvprintw(5,1,"Set up jack!");
 }
 
-/* Calculate the output voltage for a given sample - this formula is fudged for now.
- */
-float pg_psu_voltage(sample_t sample)
-{
-    /* amplifier parameters */
-    const float vmax = 15;      // Limit on output rail
-    const float vss = 1;        // Quiescent state of output rail
-    const float vleeway = 1;  // Leeway voltage (rail must stay this much above output)
-
-    /* scale sample to Vmax */
-    float v_sample = (sample * (vmax - vleeway))+vleeway;
-
-    /* compare to vss */
-    power_output = (v_sample <= vss) ? vss : v_sample;
-
-    return power_output;
-}
-
-int main (int argc, char *argv[])
-{
-    /* initialize audio buffer */
-    buf_ptr = 0;
-    
-    memset(rolling_buffer, 0, sizeof(sample_t)*BUF_SIZE);
-
-    pg_init_curses();
-    /* initialize jack */
-    pg_init_jack();
- 
-    /* initialize ncurses */
-
-
-    sample_t sample_total, sample_max;
-    int i, row, col;
-    getmaxyx(stdscr,row,col);
-    float output_voltage = 0;
-
-    mvprintw(1,1,"==== dsp-playground ====");
-    mvprintw(2,1,"Connected at %" PRIu32" kHz",jack_get_sample_rate (client));
-    mvprintw(3,1,"Buffer size: %d", BUF_SIZE);
-    while(1) {
-        sample_total = 0;
-        sample_max = 0;
-        for(i=0; i<BUF_SIZE; i++) {
-            if(rolling_buffer[i] > sample_max)
-                sample_max = rolling_buffer[i];
-            sample_total += fabs(rolling_buffer[i]);
-        }
-        sample_total /= BUF_SIZE;
-
-        output_voltage = pg_psu_voltage(sample_total);
-
-        mvprintw(row/2,3,"Current average sample level: %f",sample_total);
-        mvprintw((row/2)+1,3,"Current max sample level: %f",sample_max);
-        mvprintw((row/2)+2,3,"Power supply output voltage based on average level: %f", output_voltage);
-        refresh();
-
-    }
-
-    jack_client_close (client);
-    exit (0);
-}

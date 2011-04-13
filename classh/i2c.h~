@@ -9,6 +9,8 @@
 #ifndef ORANGE_I2C_H
 #define ORANGE_I2C_H
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
@@ -24,7 +26,7 @@
 #define POT_NEG     0x2E
 #define CMD_WRITE   0x00
 
-void i2c_init(void);
+void init_i2c(void);
 void pot_write(uint8_t, uint8_t);
 
 #endif

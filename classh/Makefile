@@ -1,8 +1,12 @@
 CC=gcc
 CFLAGS=-Wall -g
+LFLAGS=-ljack -lncurses
 
-classh: main.o i2c.o
-	$(CC) -o classh main.o i2c.o
+classh: i2c.o jack.o main.o
+	$(CC) $(LFLAGS) -o classh jack.o i2c.o main.o
+
+jack.o: jack.c
+	$(CC) $(CFLAGS) -c jack.c
 
 i2c.o: i2c.c
 	$(CC) $(CFLAGS) -c i2c.c
