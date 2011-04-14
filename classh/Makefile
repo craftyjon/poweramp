@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -g
-LFLAGS=-ljack -lncurses
+CFLAGS=-Wall -g -std=c99 -D_POSIX_C_SOURCE=199309L
+LFLAGS=-ljack -lncurses -lm
 
 classh: i2c.o jack.o main.o
 	$(CC) $(LFLAGS) -o classh jack.o i2c.o main.o

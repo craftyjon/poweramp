@@ -14,6 +14,6 @@
 #define CMD_WRITE   0x00
 
 void init_i2c(void);
-void pot_write(uint8_t, uint8_t);
+int pot_write(uint8_t, uint8_t);
 
 #endif
